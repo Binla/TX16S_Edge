@@ -987,7 +987,7 @@ local function refresh(_j7, event, touchState)
         _p5 = string.format("%d", _q5)
     end
     lcd.drawText(335, 75, _p5, CENTER + VCENTER + DBLSIZE + BOLD + _e7)
-    lcd.drawText(430, 88, "Rpm" , CENTER + VCENTER + _d6)
+    lcd.drawText(430, 88, "rpm" , CENTER + VCENTER + _d6)
     lcd.drawFilledRectangle(260, 105, 190, 1, _d6)
      
     local _r5 = (_k3[10][2] and _f7[10][1]) or 0
@@ -1056,12 +1056,16 @@ local function refresh(_j7, event, touchState)
        if _q2 > 0 then
            _o2 = string.format("%.1fA", _q2)
        end
+       local _max_o2 = string.format("(%2dA)", 0)
+       if _f7[2][2] > 0 then
+           _max_o2 = string.format("(%2dA)", math.floor(math.min(99, _f7[2][2])))
+       end
        if _i7 and string.find(_i7, "tx15") then
-            lcd.drawText(15, 275+_k5, "Current", BOLD +  _d6)
-            lcd.drawText(78, 275+_k5, _o2, BOLD +  _e7)
+            lcd.drawText(15, 275+_k5, _o2, BOLD +  _e7)
+            lcd.drawText(85, 275+_k5, _max_o2, RED)
         else
-            lcd.drawText(15, 275+_k5-15, "Current", BOLD +  _d6)
-            lcd.drawText(78, 275+_k5-15, _o2, BOLD +  _e7)
+            lcd.drawText(15, 275+_k5-15, _o2, BOLD +  _e7)
+            lcd.drawText(85, 275+_k5-15, _max_o2, RED)
         end
         local _j5 = _p1 * _q2
         local _i5 = "0.0W"
@@ -1074,11 +1078,9 @@ local function refresh(_j7, event, touchState)
         end
         
         if _i7 and string.find(_i7, "tx15") then
-          lcd.drawText(128, 275+_k5, "Power", BOLD +  _d6)
-          lcd.drawText(183, 275+_k5, _i5, BOLD +  _e7)
+          lcd.drawText(145, 275+_k5, _i5, BOLD +  _e7)
         else
-          lcd.drawText(128, 275+_k5-15, "Power", BOLD +  _d6)
-          lcd.drawText(183, 275+_k5-15, _i5, BOLD +  _e7)
+          lcd.drawText(145, 275+_k5-15, _i5, BOLD +  _e7)
         end
     
     
