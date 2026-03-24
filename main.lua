@@ -167,7 +167,7 @@ local function _x3(_j7)
         _k1.current = _l1
         return
     end
-    local _v3 = getValue("FM")
+    local _v3 = getValue("Mode")
     if _v3 ~= nil then
         local _l1 = math.floor(_v3) + 1
         _k1.current = math.max(1, math.min(6, _l1))
@@ -285,8 +285,6 @@ local function _x2(xs, ys, _v6, message, flags)
         , flags)
     lcd.drawText(xs + 205, ys + 30,
         "Battery: " .. _j3[8] .. " -> " .. _j3[9] .. "[V]\n" ..
-        "BEC: " .. _j3[22] .. " -> " .. _j3[21] .. "[V]\n" ..
-        "ESC: " .. _j3[11] .. " -> " .. _j3[10] .. "[°C]\n" ..
         "MCU: " .. _j3[13] .. " -> " .. _j3[12] .. "[°C]\n" ..
         _l2[8] .. ": " .. _j3[14] .. " -> " .. _j3[15] .. "[dB]\n" ..
         _l2[9] .. ": " .. _j3[16] .. " -> " .. _j3[17] .. "[dB]\n" ..
@@ -575,13 +573,19 @@ local function refresh(_j7, event, touchState)
     lcd.drawFilledRectangle(0, 0, _w5, _v5, _t1)
     local _w6 = 25
     
-    local _fm_sens = getValue("FM")
+    local _fm_sens = getValue("Mode")
     local _fm_str = "--- "
     if _fm_sens ~= nil then
         if type(_fm_sens) == "string" then
             _fm_str = _fm_sens
         elseif type(_fm_sens) == "number" then
-            if _fm_sens ~= 0 then _fm_str = tostring(_fm_sens) end
+            if _fm_sens == 0 then
+                _fm_str = "Manual"
+            elseif _fm_sens == 2 then
+                _fm_str = "Stable"
+            else
+                _fm_str = tostring(_fm_sens)
+            end
         end
     end
     
@@ -638,14 +642,18 @@ local function refresh(_j7, event, touchState)
     
     _k1.current = (_k3[17][2] and _f7[17][1]) or 1
     local _j1 = _d6
+    local _prof_str = tostring(_k1.current)
     if _k1.current == 1 then
-        _j1 = lcd.RGB(0, 100, 255)      
+        _j1 = lcd.RGB(0, 100, 255)
+        _prof_str = "Norm"
     elseif _k1.current == 2 then
-        _j1 = lcd.RGB(255, 165, 0)      
+        _j1 = lcd.RGB(255, 165, 0)
+        _prof_str = "Idle1"
     elseif _k1.current == 3 then
-        _j1 = lcd.RGB(255, 255, 0)      
+        _j1 = lcd.RGB(255, 255, 0)
+        _prof_str = "Idle2"
     end
-    lcd.drawText(20, 45, tostring(_k1.current), CENTER + VCENTER + BOLD + MIDSIZE + _j1)
+    lcd.drawText(30, 45, _prof_str, CENTER + VCENTER + BOLD + _j1)
     local _i1 = (_k3[13][2] and _f7[13][1]) or 0  
     local _b4 = (_k3[14][2] and _f7[14][1]) or 0  
     
@@ -907,23 +915,16 @@ local function refresh(_j7, event, touchState)
     local _p1 = (_k3[1][2] and _f7[1][1]) or 0  
     local _q1 = string.format("%04.1fv", _p1)
     if _p1 == 0 then _q1 = "00.0v" end
-    lcd.drawText(155, 110+_k5, "Volt" , VCENTER + _lbl_col)
-    lcd.drawText(255, 110+_k5, _q1, RIGHT + VCENTER + MIDSIZE + _val_col)
-    lcd.drawLine(155, 125+_k5, 255, 125+_k5, SOLID, _line_col)
+    lcd.drawText(140, 155+_k5, "Vbat" , VCENTER + _lbl_col)
+    lcd.drawText(240, 155+_k5, _q1, RIGHT + VCENTER + MIDSIZE + _val_col)
+    lcd.drawLine(140, 170+_k5, 240, 170+_k5, SOLID, _line_col)
 
     local _g7 = (_k3[15][2] and _f7[15][1]) or 0  
     local _h7 = string.format("%04.2fv", _g7)
     if _g7 == 0 then _h7 = "0.00v" end
-    lcd.drawText(155, 155+_k5, "Vcel" , VCENTER + _lbl_col)
-    lcd.drawText(255, 155+_k5, _h7, RIGHT + VCENTER + MIDSIZE + _val_col)
-    lcd.drawLine(155, 170+_k5, 255, 170+_k5, SOLID, _line_col)
-
-    local _r1 = (_k3[12][2] and _f7[12][1]) or 0  
-    local _s1 = string.format("%04.1fv", _r1)
-    if _r1 == 0 then _s1 = "00.0v" end
-    lcd.drawText(155, 200+_k5, "Bec" , VCENTER + _lbl_col)
-    lcd.drawText(255, 200+_k5, _s1, RIGHT + VCENTER + MIDSIZE + _val_col)
-    lcd.drawLine(155, 215+_k5, 255, 215+_k5, SOLID, _line_col)
+    lcd.drawText(140, 200+_k5, "Vcel" , VCENTER + _lbl_col)
+    lcd.drawText(240, 200+_k5, _h7, RIGHT + VCENTER + MIDSIZE + _val_col)
+    lcd.drawLine(140, 215+_k5, 240, 215+_k5, SOLID, _line_col)
     
      
     local _o1 = (_k3[5][2] and _f7[5][1]) or 0  
@@ -966,27 +967,20 @@ local function refresh(_j7, event, touchState)
         return lcd.RGB(0, 100, 255)
     end
     
-    local _t_esc = (_k3[6][2] and _f7[6][1]) or 0
-    local _pct_esc = math.max(0, math.min(100, _t_esc))
-    _z2(5, 90+_k5, 25, 130, _pct_esc, -1, _t1, get_temp_col(_t_esc), WHITE, false, WHITE)
-    if _temp_img then lcd.drawBitmap(_temp_img, 5, 90+_k5) end
-    lcd.drawText(17, 222+_k5, "ESC", CENTER + SMLSIZE + WHITE)
-    lcd.drawText(17, 238+_k5, string.format("%.0f°", _t_esc), CENTER + SMLSIZE + _e7)
-
     local _t_fc = (_k3[7][2] and _f7[7][1]) or 0
     local _pct_fc = math.max(0, math.min(100, _t_fc))
-    _z2(45, 90+_k5, 25, 130, _pct_fc, -1, _t1, get_temp_col(_t_fc), WHITE, false, WHITE)
-    if _temp_img then lcd.drawBitmap(_temp_img, 45, 90+_k5) end
-    lcd.drawText(57, 222+_k5, "FC", CENTER + SMLSIZE + WHITE)
-    lcd.drawText(57, 238+_k5, string.format("%.0f°", _t_fc), CENTER + SMLSIZE + _e7)
+    _z2(5, 90+_k5, 25, 130, _pct_fc, -1, _t1, get_temp_col(_t_fc), WHITE, false, WHITE)
+    if _temp_img then lcd.drawBitmap(_temp_img, 5, 90+_k5) end
+    lcd.drawText(17, 222+_k5, "FC", CENTER + SMLSIZE + WHITE)
+    lcd.drawText(17, 238+_k5, string.format("%.0f°", _t_fc), CENTER + SMLSIZE + _e7)
 
-    _z2(85, 90+_k5, 25, 130, _o1, _o1, _t1, _bat_color, WHITE, true, _e7)
-    lcd.drawText(97, 222+_k5, "BAT%", CENTER + SMLSIZE + WHITE)
-    lcd.drawText(97, 238+_k5, string.format("%.0f%%", _o1), CENTER + SMLSIZE + _e7)
+    _z2(55, 90+_k5, 25, 130, _o1, _o1, _t1, _bat_color, WHITE, true, _e7)
+    lcd.drawText(67, 222+_k5, "BAT%", CENTER + SMLSIZE + WHITE)
+    lcd.drawText(67, 238+_k5, string.format("%.0f%%", _o1), CENTER + SMLSIZE + _e7)
     
-    _z2(125, 90+_k5, 25, 130, _t6, -1, _t1, YELLOW, WHITE, true, _e7)
-    lcd.drawText(137, 222+_k5, "T.out", CENTER + SMLSIZE + WHITE)
-    lcd.drawText(137, 238+_k5, string.format("%.0f%%", _t6), CENTER + SMLSIZE + _e7)
+    _z2(105, 90+_k5, 25, 130, _t6, -1, _t1, YELLOW, WHITE, true, _e7)
+    lcd.drawText(117, 222+_k5, "T.out", CENTER + SMLSIZE + WHITE)
+    lcd.drawText(117, 238+_k5, string.format("%.0f%%", _t6), CENTER + SMLSIZE + _e7)
     local _q5 = (_k3[3][2] and _f7[3][1]) or 0  
     local _p5 = "0"
     if _q5 > 0 then
