@@ -237,11 +237,65 @@ local function _z2(xs, ys, width, height, _t6,value2, _t1, fg_color, border_colo
         local _m4 = ys + height - _s6 - _k4 / 2
         
         lcd.drawFilledRectangle(xs - _l4 - 1, _m4+_k4, _l4, _k4, indicator_color)
-        
-        if value2 > -1 then
-          lcd.drawText(xs - _l4 - 1, _m4 + _k4 / 2+2, string.format("%d%%", value2), RIGHT + VCENTER + SMLSIZE + indicator_color)
+    end
+end
+
+local function _drawToutGauge(xs, ys, width, height, _t6, fg_color, border_color)
+    _t6 = math.max(0, math.min(100, _t6))
+    
+    -- Draw Frame
+    lcd.drawRectangle(xs, ys, width, height, border_color)
+    
+    -- Draw Center Line
+    local mid_y = ys + height / 2
+    lcd.drawLine(xs - 4, mid_y, xs + width + 4, mid_y, SOLID, border_color)
+    
+    -- Draw Ticks
+    for i = 1, 9 do
+        if i ~= 5 then
+            local tick_y = ys + height * (1 - i/10)
+            local tick_w = (i % 5 == 0) and 6 or 3
+            lcd.drawLine(xs, tick_y, xs + tick_w, tick_y, SOLID, border_color)
+            lcd.drawLine(xs + width - tick_w, tick_y, xs + width, tick_y, SOLID, border_color)
+        end
+    end
+    
+    -- Draw Moving Bar (Indicator)
+    local bar_h = 4
+    local bar_y = ys + height - (height * _t6 / 100) - bar_h / 2
+    bar_y = math.max(ys, math.min(ys + height - bar_h, bar_y))
+    lcd.drawFilledRectangle(xs + 2, bar_y, width - 4, bar_h, fg_color)
+    lcd.drawLine(xs + 2, bar_y, xs + width - 3, bar_y, SOLID, BLACK) -- Black line on top
+end
+
+local function _drawBatteryGauge(xs, ys, width, height, val, fg_color, border_color)
+    val = math.max(0, math.min(100, val))
+    local cap_h = 5
+    local cap_w = width * 0.4
+    local cap_x = xs + (width - cap_w) / 2
+    
+    -- Draw Cap
+    lcd.drawRectangle(cap_x, ys, cap_w, cap_h, border_color)
+    
+    -- Draw Body
+    local body_y = ys + cap_h
+    local body_h = height - cap_h
+    lcd.drawRectangle(xs, body_y, width, body_h, border_color)
+    
+    -- Draw Segments (8 segments)
+    local num_segments = 8
+    local seg_spacing = 2
+    local total_spacing = (num_segments + 1) * seg_spacing
+    local seg_h = (body_h - total_spacing) / num_segments
+    
+    local filled_segments = math.floor(val * num_segments / 100 + 0.5)
+    
+    for i = 1, num_segments do
+        local seg_y = body_y + body_h - i * (seg_h + seg_spacing)
+        if i <= filled_segments then
+            lcd.drawFilledRectangle(xs + 2, seg_y, width - 4, seg_h, fg_color)
         else
-          lcd.drawText(xs - _l4 - 1, _m4 + _k4 / 2+2, string.format("%d%%", _t6), RIGHT + VCENTER + SMLSIZE + indicator_color)  
+            lcd.drawRectangle(xs + 2, seg_y, width - 4, seg_h, border_color)
         end
     end
 end
@@ -589,10 +643,13 @@ local function refresh(_j7, event, touchState)
         end
     end
     
+    local _fm_val_w = lcd.getTextWidth(_fm_str)
     if _i7 and string.find(_i7, "tx15") then
-        lcd.drawText(450, 280, "FM: " .. _fm_str, RIGHT + BOLD + WHITE)
+        lcd.drawText(450 - _fm_val_w, 280, "FM: ", RIGHT + BOLD + WHITE)
+        lcd.drawText(450, 280, _fm_str, RIGHT + BOLD + GREEN)
     else
-        lcd.drawText(450, 280+_k5-20, "FM: " .. _fm_str, RIGHT + BOLD + WHITE)
+        lcd.drawText(450 - _fm_val_w, 280+_k5-20, "FM: ", RIGHT + BOLD + WHITE)
+        lcd.drawText(450, 280+_k5-20, _fm_str, RIGHT + BOLD + GREEN)
     end
     
     local _m2 = model.getInfo().name
@@ -636,7 +693,7 @@ local function refresh(_j7, event, touchState)
     end
     lcd.drawText(400, 13, "Tx", BOLD + _d6)
     lcd.drawText(420, 13, _a7, BOLD + _b7)
-    lcd.drawText(30, _w6 / 12+20, "Profile" , CENTER + VCENTER + _d6)
+    -- Profile label removed
     
     lcd.drawText(170, _w6 / 12+20, "RSSI" , CENTER + VCENTER + _d6)
     
@@ -653,7 +710,7 @@ local function refresh(_j7, event, touchState)
         _j1 = lcd.RGB(255, 255, 0)
         _prof_str = "Idle2"
     end
-    lcd.drawText(30, 45, _prof_str, CENTER + VCENTER + BOLD + _j1)
+    lcd.drawText(30, _w6 / 12+20, _prof_str, CENTER + VCENTER + BOLD + _j1)
     local _i1 = (_k3[13][2] and _f7[13][1]) or 0  
     local _b4 = (_k3[14][2] and _f7[14][1]) or 0  
     
@@ -974,11 +1031,11 @@ local function refresh(_j7, event, touchState)
     lcd.drawText(17, 222+_k5, "FC", CENTER + SMLSIZE + WHITE)
     lcd.drawText(17, 238+_k5, string.format("%.0f°", _t_fc), CENTER + SMLSIZE + _e7)
 
-    _z2(55, 90+_k5, 25, 130, _o1, _o1, _t1, _bat_color, WHITE, true, _e7)
+    _drawBatteryGauge(55, 90+_k5, 25, 130, _o1, _bat_color, WHITE)
     lcd.drawText(67, 222+_k5, "BAT%", CENTER + SMLSIZE + WHITE)
     lcd.drawText(67, 238+_k5, string.format("%.0f%%", _o1), CENTER + SMLSIZE + _e7)
     
-    _z2(105, 90+_k5, 25, 130, _t6, -1, _t1, YELLOW, WHITE, true, _e7)
+    _drawToutGauge(105, 90+_k5, 25, 130, _t6, YELLOW, WHITE)
     lcd.drawText(117, 222+_k5, "T.out", CENTER + SMLSIZE + WHITE)
     lcd.drawText(117, 238+_k5, string.format("%.0f%%", _t6), CENTER + SMLSIZE + _e7)
     local _q5 = (_k3[3][2] and _f7[3][1]) or 0  
