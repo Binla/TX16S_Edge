@@ -84,8 +84,19 @@ local function create(zone, _c5)
             _k3[k][1] = _l3.id
             _k3[k][2] = true
         else
-            _k3[k][1] = 0
-            _k3[k][2] = false
+            if v == "Bat%" then
+                _l3 = getFieldInfo("Fuel")
+                if _l3 ~= nil then
+                    _k3[k][1] = _l3.id
+                    _k3[k][2] = true
+                else
+                    _k3[k][1] = 0
+                    _k3[k][2] = false
+                end
+            else
+                _k3[k][1] = 0
+                _k3[k][2] = false
+            end
         end
     end
     for i = 1, #_x5 do
@@ -246,15 +257,15 @@ local function _drawToutGauge(xs, ys, width, height, _t6, fg_color, border_color
     -- Draw Frame
     lcd.drawRectangle(xs, ys, width, height, border_color)
     
-    -- Draw Center Line
+    -- Draw Center Line (no protrusion)
     local mid_y = ys + height / 2
-    lcd.drawLine(xs - 4, mid_y, xs + width + 4, mid_y, SOLID, border_color)
+    lcd.drawLine(xs, mid_y, xs + width, mid_y, SOLID, border_color)
     
     -- Draw Ticks
     for i = 1, 9 do
         if i ~= 5 then
             local tick_y = ys + height * (1 - i/10)
-            local tick_w = (i % 5 == 0) and 6 or 3
+            local tick_w = (i % 5 == 0) and 4 or 2
             lcd.drawLine(xs, tick_y, xs + tick_w, tick_y, SOLID, border_color)
             lcd.drawLine(xs + width - tick_w, tick_y, xs + width, tick_y, SOLID, border_color)
         end
@@ -282,21 +293,13 @@ local function _drawBatteryGauge(xs, ys, width, height, val, fg_color, border_co
     local body_h = height - cap_h
     lcd.drawRectangle(xs, body_y, width, body_h, border_color)
     
-    -- Draw Segments (8 segments)
-    local num_segments = 8
-    local seg_spacing = 2
-    local total_spacing = (num_segments + 1) * seg_spacing
-    local seg_h = (body_h - total_spacing) / num_segments
+    -- Draw Bar (continuous)
+    local padding = 2
+    local bar_h = body_h - (padding * 2)
+    local fill_h = math.floor(bar_h * val / 100)
     
-    local filled_segments = math.floor(val * num_segments / 100 + 0.5)
-    
-    for i = 1, num_segments do
-        local seg_y = body_y + body_h - i * (seg_h + seg_spacing)
-        if i <= filled_segments then
-            lcd.drawFilledRectangle(xs + 2, seg_y, width - 4, seg_h, fg_color)
-        else
-            lcd.drawRectangle(xs + 2, seg_y, width - 4, seg_h, border_color)
-        end
+    if fill_h > 0 then
+        lcd.drawFilledRectangle(xs + padding, body_y + body_h - padding - fill_h, width - (padding * 2), fill_h, fg_color)
     end
 end
 local function _x2(xs, ys, _v6, message, flags)
@@ -643,7 +646,7 @@ local function refresh(_j7, event, touchState)
         end
     end
     
-    local _fm_val_w = lcd.getTextWidth(_fm_str)
+    local _fm_val_w = (lcd.getTextWidth and lcd.getTextWidth(_fm_str)) or (string.len(_fm_str) * 10) -- Fallback for older firmwares
     if _i7 and string.find(_i7, "tx15") then
         lcd.drawText(450 - _fm_val_w, 280, "FM: ", RIGHT + BOLD + WHITE)
         lcd.drawText(450, 280, _fm_str, RIGHT + BOLD + GREEN)
@@ -697,20 +700,28 @@ local function refresh(_j7, event, touchState)
     
     lcd.drawText(170, _w6 / 12+20, "RSSI" , CENTER + VCENTER + _d6)
     
-    _k1.current = (_k3[17][2] and _f7[17][1]) or 1
+    local _prof_found = _k3[17][2] and _f7[17][1] ~= 0
+    _k1.current = (_k3[17][2] and _f7[17][1]) or 0
     local _j1 = _d6
     local _prof_str = tostring(_k1.current)
-    if _k1.current == 1 then
-        _j1 = lcd.RGB(0, 100, 255)
-        _prof_str = "Norm"
-    elseif _k1.current == 2 then
-        _j1 = lcd.RGB(255, 165, 0)
-        _prof_str = "Idle1"
-    elseif _k1.current == 3 then
-        _j1 = lcd.RGB(255, 255, 0)
-        _prof_str = "Idle2"
+    
+    if not _prof_found then
+        _j1 = RED
+        _prof_str = "Missed"
+        lcd.drawText(10, _w6 / 12+20, _prof_str, VCENTER + BOLD + _j1)
+    else
+        if _k1.current == 1 then
+            _j1 = lcd.RGB(0, 100, 255)
+            _prof_str = "Norm"
+        elseif _k1.current == 2 then
+            _j1 = lcd.RGB(255, 165, 0)
+            _prof_str = "Idle1"
+        elseif _k1.current == 3 then
+            _j1 = lcd.RGB(255, 255, 0)
+            _prof_str = "Idle2"
+        end
+        lcd.drawText(30, _w6 / 12+20, _prof_str, CENTER + VCENTER + BOLD + _j1)
     end
-    lcd.drawText(30, _w6 / 12+20, _prof_str, CENTER + VCENTER + BOLD + _j1)
     local _i1 = (_k3[13][2] and _f7[13][1]) or 0  
     local _b4 = (_k3[14][2] and _f7[14][1]) or 0  
     
