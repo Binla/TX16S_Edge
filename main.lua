@@ -12,6 +12,7 @@ local _k1 = { current = 1, name = "Bank 1" }
 local _r6
 local _t2
 local _temp_img
+local _missed_img
 local _g2 = ""
 local _h2 = ""
 local _o4 = 0
@@ -157,6 +158,7 @@ local function create(zone, _c5)
     
     _t2 = Bitmap.open("/WIDGETS/DBK_Tx15Mini/default.png")
     _temp_img = Bitmap.open("/WIDGETS/DBK_Tx15Mini/temp.png")
+    _missed_img = Bitmap.open("/WIDGETS/DBK_Tx15Mini/missed.png")
     return _j7
 end
 local function update(_j7, _c5)
@@ -708,7 +710,14 @@ local function refresh(_j7, event, touchState)
     if not _prof_found then
         _j1 = RED
         _prof_str = "Missed"
-        lcd.drawText(10, _w6 / 12+20, _prof_str, VCENTER + BOLD + _j1)
+        -- lcd.drawText(10, _w6 / 12+20, _prof_str, VCENTER + BOLD + _j1)
+        if _missed_img then
+            if (getTime() % 100) < 50 then
+                lcd.drawBitmap(_missed_img, 10, math.floor(_w6 / 12 + 10))
+            end
+        else
+            lcd.drawText(10, _w6 / 12+20, _prof_str, VCENTER + BOLD + _j1)
+        end
     else
         if _k1.current == 1 then
             _j1 = lcd.RGB(0, 100, 255)
