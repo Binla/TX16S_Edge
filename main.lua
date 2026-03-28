@@ -281,27 +281,33 @@ local function _drawToutGauge(xs, ys, width, height, _t6, fg_color, border_color
     lcd.drawLine(xs + 2, bar_y, xs + width - 3, bar_y, SOLID, BLACK) -- Black line on top
 end
 
-local function _drawBatteryGauge(xs, ys, width, height, val, fg_color, border_color)
+local function _drawBatteryGauge(xs, ys, width, height, val, fg_color, border_color, vbat, vcell)
     val = math.max(0, math.min(100, val))
-    local cap_h = 5
-    local cap_w = width * 0.4
-    local cap_x = xs + (width - cap_w) / 2
     
-    -- Draw Cap
-    lcd.drawRectangle(cap_x, ys, cap_w, cap_h, border_color)
-    
-    -- Draw Body
-    local body_y = ys + cap_h
-    local body_h = height - cap_h
-    lcd.drawRectangle(xs, body_y, width, body_h, border_color)
+    -- Draw Body (No Cap)
+    lcd.drawRectangle(xs, ys, width, height, border_color)
     
     -- Draw Bar (continuous)
     local padding = 2
-    local bar_h = body_h - (padding * 2)
+    local bar_h = height - (padding * 2)
     local fill_h = math.floor(bar_h * val / 100)
     
     if fill_h > 0 then
-        lcd.drawFilledRectangle(xs + padding, body_y + body_h - padding - fill_h, width - (padding * 2), fill_h, fg_color)
+        lcd.drawFilledRectangle(xs + padding, ys + height - padding - fill_h, width - (padding * 2), fill_h, fg_color)
+    end
+
+    -- Draw Vbat line (Blue)
+    if vbat and vbat > 0 then
+        local vbat_pct = math.max(0, math.min(100, ((vbat - 9.0) / 3.6) * 100)) -- 3S LiPo scale example
+        local vbat_y = ys + height - padding - math.floor(bar_h * vbat_pct / 100)
+        lcd.drawLine(xs, vbat_y, xs + width, vbat_y, SOLID, lcd.RGB(0, 100, 255))
+    end
+
+    -- Draw Vcell line (Magenta)
+    if vcell and vcell > 0 then
+        local vcell_pct = math.max(0, math.min(100, ((vcell - 3.0) / 1.2) * 100)) -- Per-cell scale
+        local vcell_y = ys + height - padding - math.floor(bar_h * vcell_pct / 100)
+        lcd.drawLine(xs, vcell_y, xs + width, vcell_y, SOLID, lcd.RGB(255, 0, 255))
     end
 end
 local function _x2(xs, ys, _v6, message, flags)
@@ -777,8 +783,8 @@ local function refresh(_j7, event, touchState)
         end
     end
     local _h4 = _e4 and "Hold" or "H.off"
-    local _f4 = _e4 and GREEN or RED
-    lcd.drawText(100, _w6 / 12+20, _h4, CENTER + VCENTER + BOLD + _f4)
+    local _f4 = _e4 and GREEN or YELLOW
+    lcd.drawText(100, _w6 / 12+20, _h4, CENTER + VCENTER + MIDSIZE + BOLD + _f4)
     for k = 1, _d1 do
         if _k3[k][2] then
             local _y3 = getValue(_k3[k][1])
@@ -989,19 +995,6 @@ local function refresh(_j7, event, touchState)
     local _val_col = lcd.RGB(100, 240, 240)
     local _line_col = lcd.RGB(0, 100, 200)
 
-    local _p1 = (_k3[1][2] and _f7[1][1]) or 0  
-    local _q1 = string.format("%04.1fv", _p1)
-    if _p1 == 0 then _q1 = "00.0v" end
-    lcd.drawText(140, 155+_k5, "Vbat" , VCENTER + _lbl_col)
-    lcd.drawText(240, 155+_k5, _q1, RIGHT + VCENTER + MIDSIZE + _val_col)
-    lcd.drawLine(140, 170+_k5, 240, 170+_k5, SOLID, _line_col)
-
-    local _g7 = (_k3[15][2] and _f7[15][1]) or 0  
-    local _h7 = string.format("%04.2fv", _g7)
-    if _g7 == 0 then _h7 = "0.00v" end
-    lcd.drawText(140, 200+_k5, "Vcel" , VCENTER + _lbl_col)
-    lcd.drawText(240, 200+_k5, _h7, RIGHT + VCENTER + MIDSIZE + _val_col)
-    lcd.drawLine(140, 215+_k5, 240, 215+_k5, SOLID, _line_col)
     
      
     local _o1 = (_k3[5][2] and _f7[5][1]) or 0  
@@ -1020,12 +1013,10 @@ local function refresh(_j7, event, touchState)
     
     if _i7 and string.find(_i7, "tx15") then
       lcd.drawText(275, 130, "Time" , CENTER + VCENTER + _d6)
-      lcd.drawText(335, 130, _t3, CENTER + VCENTER + MIDSIZE + BOLD + _t1_color)
-      lcd.drawText(470, 130, _orig_time, RIGHT + VCENTER + MIDSIZE + _e7)
+      lcd.drawText(450, 130, _t3, RIGHT + VCENTER + MIDSIZE + BOLD + _t1_color)
     else
       lcd.drawText(275, 125, "Time" , CENTER + VCENTER + _d6)
-      lcd.drawText(335, 125, _t3, CENTER + VCENTER + MIDSIZE + BOLD + _t1_color)
-      lcd.drawText(470, 125, _orig_time, RIGHT + VCENTER + MIDSIZE + _e7)
+      lcd.drawText(450, 125, _t3, RIGHT + VCENTER + MIDSIZE + BOLD + _t1_color)
     end
     
     local _t6 = (_k3[11][2] and _f7[11][1]) or 0
@@ -1045,19 +1036,33 @@ local function refresh(_j7, event, touchState)
     end
     
     local _t_fc = (_k3[7][2] and _f7[7][1]) or 0
-    local _pct_fc = math.max(0, math.min(100, _t_fc))
-    _z2(5, 90+_k5, 25, 130, _pct_fc, -1, _t1, get_temp_col(_t_fc), WHITE, false, WHITE)
-    if _temp_img then lcd.drawBitmap(_temp_img, 5, 90+_k5) end
-    lcd.drawText(17, 222+_k5, "FC", CENTER + SMLSIZE + WHITE)
-    lcd.drawText(17, 238+_k5, string.format("%.0f°", _t_fc), CENTER + SMLSIZE + _e7)
 
-    _drawBatteryGauge(55, 90+_k5, 25, 130, _o1, _bat_color, WHITE)
-    lcd.drawText(67, 222+_k5, "BAT%", CENTER + SMLSIZE + WHITE)
-    lcd.drawText(67, 238+_k5, string.format("%.0f%%", _o1), CENTER + SMLSIZE + _e7)
+    -- Re-allocated Gauge layout (FC at 20, VOLTS at 100, T.out at 180)
+    local _bar_y = 90 + _k5
+    local _bar_h = 130
+    local _lbl_y = 222 + _k5
+    local _val_y = 135 + _k5
+
+    -- FC (X=20)
+    local _pct_fc = math.max(0, math.min(100, _t_fc))
+    _z2(20, _bar_y, 25, _bar_h, _pct_fc, -1, _t1, get_temp_col(_t_fc), WHITE, false, WHITE)
+    if _temp_img then lcd.drawBitmap(_temp_img, 20, _bar_y) end
+    lcd.drawText(32, _lbl_y, "FC", CENTER + SMLSIZE + WHITE)
+    lcd.drawText(50, _val_y, string.format("%.0f°", _t_fc), SMLSIZE + _e7)
+
+    -- VOLTS (X=100)
+    local _p1 = (_k3[1][2] and _f7[1][1]) or 0  -- Vbat
+    local _g7 = (_k3[15][2] and _f7[15][1]) or 0 -- Vcell
+    _drawBatteryGauge(100, _bar_y, 25, _bar_h, _o1, _bat_color, WHITE, _p1, _g7)
+    lcd.drawText(112, _lbl_y, "VOLTS", CENTER + SMLSIZE + WHITE)
+    lcd.drawText(130, _val_y, string.format("%.1fV", _p1), SMLSIZE + lcd.RGB(0, 100, 255))
+    lcd.drawText(130, _val_y + 15, string.format("%.2fV", _g7), SMLSIZE + lcd.RGB(255, 0, 255))
     
-    _drawToutGauge(105, 90+_k5, 25, 130, _t6, YELLOW, WHITE)
-    lcd.drawText(117, 222+_k5, "T.out", CENTER + SMLSIZE + WHITE)
-    lcd.drawText(117, 238+_k5, string.format("%.0f%%", _t6), CENTER + SMLSIZE + _e7)
+    -- T.out (X=180)
+    _drawToutGauge(180, _bar_y, 25, _bar_h, _t6, YELLOW, WHITE)
+    lcd.drawText(192, _lbl_y, "T.out", CENTER + SMLSIZE + WHITE)
+    lcd.drawText(210, _val_y, string.format("%.0f%%", _t6), SMLSIZE + _e7)
+
     local _q5 = (_k3[3][2] and _f7[3][1]) or 0  
     local _p5 = "0"
     if _q5 > 0 then
@@ -1118,47 +1123,6 @@ local function refresh(_j7, event, touchState)
     end
      
  
-       local _q2 = (_k3[2][2] and _f7[2][1]) or 0
-       
-       if not _n4 then
-           
-           _n2 = 0
-       else
-           
-           if _q2 > _n2 then
-               _n2 = _q2
-           end
-       end
-       local _o2 = "0.0A"
-       if _q2 > 0 then
-           _o2 = string.format("%.1fA", _q2)
-       end
-       local _max_o2 = string.format("(%2dA)", 0)
-       if _f7[2][2] > 0 then
-           _max_o2 = string.format("(%2dA)", math.floor(math.min(99, _f7[2][2])))
-       end
-       if _i7 and string.find(_i7, "tx15") then
-            lcd.drawText(15, 275+_k5, _o2, BOLD +  _e7)
-            lcd.drawText(85, 275+_k5, _max_o2, RED)
-        else
-            lcd.drawText(15, 275+_k5-15, _o2, BOLD +  _e7)
-            lcd.drawText(85, 275+_k5-15, _max_o2, RED)
-        end
-        local _j5 = _p1 * _q2
-        local _i5 = "0.0W"
-        if _j5 > 0 then
-            if _j5 >= 1000 then
-                _i5 = string.format("%.1fkW", _j5 / 1000)
-            else
-                _i5 = string.format("%.0fW", _j5)
-            end
-        end
-        
-        if _i7 and string.find(_i7, "tx15") then
-          lcd.drawText(145, 275+_k5, _i5, BOLD +  _e7)
-        else
-          lcd.drawText(145, 275+_k5-15, _i5, BOLD +  _e7)
-        end
     
     
     if _b6 then
