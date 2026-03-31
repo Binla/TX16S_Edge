@@ -253,6 +253,50 @@ local function _z2(xs, ys, width, height, _t6,value2, _t1, fg_color, border_colo
     end
 end
 
+local function _drawHorizontalGauge(xs, ys, width, height, percent, color, label_str, val_str, val_color, font_flag)
+    percent = math.max(0, math.min(100, percent))
+    local r = height / 2
+    
+    -- Draw background track (rounded)
+    lcd.drawFilledCircle(xs + r, ys + r, r, BLACK)
+    lcd.drawFilledCircle(xs + width - r, ys + r, r, BLACK)
+    lcd.drawFilledRectangle(xs + r, ys, width - 2 * r, height, BLACK)
+    
+    -- Draw border
+    lcd.drawArc(xs + r, ys + r, r, 180, 270, WHITE)
+    lcd.drawArc(xs + r, ys + r, r, 270, 360, WHITE)
+    lcd.drawArc(xs + width - r, ys + r, r, 0, 90, WHITE)
+    lcd.drawArc(xs + width - r, ys + r, r, 90, 180, WHITE)
+    lcd.drawLine(xs + r, ys, xs + width - r, ys, SOLID, WHITE)
+    lcd.drawLine(xs + r, ys + height, xs + width - r, ys + height, SOLID, WHITE)
+    
+    -- Draw "stripes" (vertical ticks inside)
+    local step = (width - 2 * r) / 15
+    for i = 0, 15 do
+        local tx = xs + r + i * step
+        lcd.drawLine(tx, ys + 2, tx, ys + height - 2, SOLID, lcd.RGB(60, 60, 60))
+    end
+    
+    -- Draw fill (active part)
+    local fillWidth = math.floor((width - 2 * r) * percent / 100)
+    if fillWidth > 0 then
+        -- Simple gradient-like effect with two shades
+        lcd.drawFilledRectangle(xs + r, ys + 2, fillWidth, height - 4, color)
+    end
+    
+    -- Draw Thumb (Circle)
+    local thumbX = xs + r + fillWidth
+    lcd.drawFilledCircle(thumbX, ys + r, r + 4, color)
+    lcd.drawCircle(thumbX, ys + r, r + 4, BLACK)
+    lcd.drawCircle(thumbX, ys + r, r - 1, BLACK)
+    
+    -- Draw Label and Value below
+    local _f = (font_flag == MIDSIZE + BOLD) and BOLD or (font_flag or SMLSIZE)
+    local _v_off = (font_flag and 130) or 80
+    lcd.drawText(xs, ys + height + 8, label_str, _f + WHITE)
+    lcd.drawText(xs + _v_off, ys + height + 5, val_str, (font_flag or 0) + val_color)
+end
+
 local function _drawToutGauge(xs, ys, width, height, _t6, fg_color, border_color)
     _t6 = math.max(0, math.min(100, _t6))
     
@@ -1028,40 +1072,40 @@ local function refresh(_j7, event, touchState)
         _bat_color = YELLOW
     end
     
-    local function get_temp_col(t)
-        if t >= 65 then return RED end
-        if t >= 45 then return YELLOW end
-        if t >= 30 then return GREEN end
-        return lcd.RGB(0, 100, 255)
-    end
-    
-    local _t_fc = (_k3[7][2] and _f7[7][1]) or 0
+    -- Modern Horizontal Gauges layout (Stacked on the left)
+    local _bar_x = 20
+    local _bar_w = 200
+    local _bar_h = 24
+    local _spacing_y = 65
+    local _start_y = 80 + _k5
 
-    -- Re-allocated Gauge layout (FC at 20, VOLTS at 100, T.out at 180)
-    local _bar_y = 90 + _k5
-    local _bar_h = 130
-    local _lbl_y = 222 + _k5
-    local _val_y = 135 + _k5
-
-    -- FC (X=20)
-    local _pct_fc = math.max(0, math.min(100, _t_fc))
-    _z2(20, _bar_y, 25, _bar_h, _pct_fc, -1, _t1, get_temp_col(_t_fc), WHITE, false, WHITE)
-    if _temp_img then lcd.drawBitmap(_temp_img, 20, _bar_y) end
-    lcd.drawText(32, _lbl_y, "FC", CENTER + SMLSIZE + WHITE)
-    lcd.drawText(50, _val_y, string.format("%.0f°", _t_fc), SMLSIZE + _e7)
-
-    -- VOLTS (X=100)
+    -- Battery Bar (BLUE)
     local _p1 = (_k3[1][2] and _f7[1][1]) or 0  -- Vbat
     local _g7 = (_k3[15][2] and _f7[15][1]) or 0 -- Vcell
-    _drawBatteryGauge(100, _bar_y, 25, _bar_h, _o1, _bat_color, WHITE, _p1, _g7)
-    lcd.drawText(112, _lbl_y, "VOLTS", CENTER + SMLSIZE + WHITE)
-    lcd.drawText(130, _val_y, string.format("%.1fV", _p1), SMLSIZE + lcd.RGB(0, 100, 255))
-    lcd.drawText(130, _val_y + 15, string.format("%.2fV", _g7), SMLSIZE + lcd.RGB(255, 0, 255))
+    local _vbat_str = string.format("%.1fV", _p1)
+    local _vcell_str = string.format("%.2fV", _g7)
     
-    -- T.out (X=180)
-    _drawToutGauge(180, _bar_y, 25, _bar_h, _t6, YELLOW, WHITE)
-    lcd.drawText(192, _lbl_y, "T.out", CENTER + SMLSIZE + WHITE)
-    lcd.drawText(210, _val_y, string.format("%.0f%%", _t6), SMLSIZE + _e7)
+    -- 4.2V as 100% logic, Red notice below 3.4V
+    local _vcell_pct = math.max(0, math.min(100, (_g7 / 4.2) * 100))
+    local _v_col = (_g7 < 3.4) and RED or lcd.RGB(0, 150, 255)
+    local _v_font = MIDSIZE + BOLD
+    
+    _drawHorizontalGauge(_bar_x, _start_y, _bar_w, _bar_h, _vcell_pct, _v_col, "V_BATT:", _vbat_str, _v_col, _v_font)
+    lcd.drawText(_bar_x, _start_y + _bar_h + 35, "V_CELL:", BOLD + WHITE)
+    lcd.drawText(_bar_x + 130, _start_y + _bar_h + 32, _vcell_str, _v_font + lcd.RGB(0, 200, 255))
+
+    -- FC Temp Bar (ORANGE) - repositioned down one line
+    local _t_fc = (_k3[7][2] and _f7[7][1]) or 0
+    local _pct_fc = math.max(0, math.min(100, _t_fc))
+    local _tfc_str = string.format("%.0f", _t_fc)
+    _drawHorizontalGauge(_bar_x, _start_y + _spacing_y + 30, _bar_w, _bar_h, _pct_fc, lcd.RGB(255, 120, 0), "T_FC :", _tfc_str, lcd.RGB(255, 120, 0))
+
+    -- Throttle Bar (GREEN) - Bar moves up, Text aligns with Model Name (Y=260)
+    local _t6 = (_k3[11][2] and _f7[11][1]) or 0
+    local _throttle_str = string.format("%.0f%%", _t6)
+    local _target_text_y = 260 + _k5
+    local _thr_bar_y = _target_text_y - 32 -- (bar_h + label_offset)
+    _drawHorizontalGauge(_bar_x, _thr_bar_y, _bar_w, _bar_h, _t6, lcd.RGB(0, 255, 100), "Thr:", _throttle_str, lcd.RGB(150, 100, 255))
 
     local _q5 = (_k3[3][2] and _f7[3][1]) or 0  
     local _p5 = "0"
